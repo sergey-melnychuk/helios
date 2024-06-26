@@ -20,6 +20,10 @@ members = [
 
 default-members = ["cli"]
 
+[features]
+default = []
+beerus-wasm = ["config/beerus-wasm"]
+
 ######################################
 # Workspace Dependencies
 ######################################

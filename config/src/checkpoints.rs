@@ -11,7 +11,11 @@ use serde::{
 use crate::networks;
 
 /// The location where the list of checkpoint services are stored.
+#[cfg(feature = "beerus-wasm")]
 pub const CHECKPOINT_SYNC_SERVICES_LIST: &str = "http://127.0.0.1:3000/raw.githubusercontent.com/ethpandaops/checkpoint-sync-health-checks/master/_data/endpoints.yaml";
+
+#[cfg(not(feature = "beerus-wasm"))]
+pub const CHECKPOINT_SYNC_SERVICES_LIST: &str = "https://raw.githubusercontent.com/ethpandaops/checkpoint-sync-health-checks/master/_data/endpoints.yaml";
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawSlotResponse {
@@ -146,6 +150,7 @@ impl CheckpointFallback {
     }
 
     /// Fetch the latest checkpoint from a list of checkpoint fallback services.
+    #[cfg_attr(not(feature = "beerus-wasm"), allow(unused_variables))]
     pub async fn fetch_latest_checkpoint_from_services(
         services: &[CheckpointFallbackService],
     ) -> eyre::Result<H256> {
@@ -153,9 +158,13 @@ impl CheckpointFallback {
         let tasks: Vec<_> = services
             .iter()
             .filter(|service| {
-                // seems to severely rate-limit requests,
-                // thus blocking entire WebAssembly runtime 
-                service.endpoint != "http://testing.mainnet.beacon-api.nimbus.team/"
+                if cfg!(feature = "beerus-wasm") {
+                    // seems to severely rate-limit requests,
+                    // thus blocking entire WebAssembly runtime
+                    service.endpoint != "http://testing.mainnet.beacon-api.nimbus.team/"
+                } else {
+                    true
+                }
             })
             .map(|service| async move {
                 let service = service.clone();
@@ -239,11 +248,17 @@ impl CheckpointFallback {
     /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url);
     /// ```
     pub fn construct_url(endpoint: &str) -> String {
-        let endpoint = endpoint
-            .strip_prefix("https://").unwrap_or(endpoint)
-            .strip_prefix("http://").unwrap_or(endpoint);
-        let endpoint = format!("http://127.0.0.1:3000/{endpoint}");
-        format!("{endpoint}/checkpointz/v1/beacon/slots")
+        if cfg!(feature = "beerus-wasm") {
+            let endpoint = endpoint
+                .strip_prefix("https://")
+                .unwrap_or(endpoint)
+                .strip_prefix("http://")
+                .unwrap_or(endpoint);
+            let endpoint = format!("http://127.0.0.1:3000/{endpoint}");
+            format!("{endpoint}/checkpointz/v1/beacon/slots")
+        } else {
+            format!("{endpoint}/checkpointz/v1/beacon/slots")
+        }
     }
 
     /// Returns a list of all checkpoint fallback endpoints.

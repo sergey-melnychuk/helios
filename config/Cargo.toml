@@ -3,6 +3,10 @@ name = "config"
 version = "0.5.5"
 edition = "2021"
 
+[features]
+default = []
+beerus-wasm = []
+
 [dependencies]
 eyre.workspace = true
 serde.workspace = true
