@@ -11,7 +11,7 @@ use serde::{
 use crate::networks;
 
 /// The location where the list of checkpoint services are stored.
-pub const CHECKPOINT_SYNC_SERVICES_LIST: &str = "https://raw.githubusercontent.com/ethpandaops/checkpoint-sync-health-checks/master/_data/endpoints.yaml";
+pub const CHECKPOINT_SYNC_SERVICES_LIST: &str = "http://127.0.0.1:3000/raw.githubusercontent.com/ethpandaops/checkpoint-sync-health-checks/master/_data/endpoints.yaml";
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawSlotResponse {
@@ -152,6 +152,11 @@ impl CheckpointFallback {
         // Iterate over all mainnet checkpoint sync services and get the latest checkpoint slot for each.
         let tasks: Vec<_> = services
             .iter()
+            .filter(|service| {
+                // seems to severely rate-limit requests,
+                // thus blocking entire WebAssembly runtime 
+                service.endpoint != "http://testing.mainnet.beacon-api.nimbus.team/"
+            })
             .map(|service| async move {
                 let service = service.clone();
                 match Self::query_service(&service.endpoint).await {
@@ -234,6 +239,10 @@ impl CheckpointFallback {
     /// assert_eq!("https://sync-mainnet.beaconcha.in/checkpointz/v1/beacon/slots", url);
     /// ```
     pub fn construct_url(endpoint: &str) -> String {
+        let endpoint = endpoint
+            .strip_prefix("https://").unwrap_or(endpoint)
+            .strip_prefix("http://").unwrap_or(endpoint);
+        let endpoint = format!("http://127.0.0.1:3000/{endpoint}");
         format!("{endpoint}/checkpointz/v1/beacon/slots")
     }
 
